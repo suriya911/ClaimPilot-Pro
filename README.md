@@ -2,6 +2,20 @@
 
 ClaimPilot Pro is an AI-assisted medical coding workflow for clinical-note intake, ICD-10/CPT suggestion, review, and claim PDF generation.
 
+## Why This Project Is Used
+
+Healthcare documentation and medical billing workflows are slow, repetitive, and error-prone when done manually. ClaimPilot Pro is used to reduce that friction by helping teams move from raw clinical notes to coding suggestions and claim-ready outputs more quickly.
+
+This project is useful for:
+
+- reducing manual effort in reviewing clinical notes
+- assisting with ICD-10 and CPT code suggestion
+- improving consistency in coding workflows
+- helping reviewers validate extracted content before claim creation
+- creating a faster demo workflow for claim preparation and review
+
+In practical terms, it acts as an intelligent layer between clinical documentation and the claim-generation process.
+
 ## Live Demo
 
 - Frontend: [claim-pilot-pro.vercel.app](https://claim-pilot-pro.vercel.app)
