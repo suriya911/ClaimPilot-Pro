@@ -1,50 +1,64 @@
-# Production AWS Terraform
+# API Gateway + Lambda Terraform
 
-This Terraform stack provisions a production baseline for ClaimPilot Pro:
+This Terraform stack provisions the cheapest practical AWS backend for ClaimPilot Pro when the frontend is hosted on Vercel:
 
-- Multi-AZ VPC with public/private subnets
-- Application Load Balancer
-- EC2 Auto Scaling Group (backend containers)
-- Private S3 bucket for uploaded documents (encrypted + versioned)
-- RDS PostgreSQL Multi-AZ
-- IAM role/profile for EC2 to access S3 and CloudWatch Logs
-- SNS + CloudWatch alarm for basic operational alerting
+- API Gateway HTTP API
+- Lambda backend using a ZIP deployment package
+- Private S3 bucket for uploaded documents
+- Least-privilege IAM role for Lambda
+- CloudWatch log groups for Lambda and API access logs
+
+This stack does not create frontend hosting. The frontend is expected to be deployed on Vercel.
 
 ## Prerequisites
 
 - Terraform `>= 1.6`
-- AWS credentials with permissions for VPC, EC2, ALB, IAM, S3, RDS, SNS, CloudWatch
-- Backend container image available in ECR (or other reachable registry)
+- AWS credentials with permissions for Lambda, API Gateway, IAM, S3, and CloudWatch
+- Vercel project for the frontend
 
 ## Usage
 
 Create `terraform.tfvars`:
 
 ```hcl
-project_name         = "claimpilot-pro"
-environment          = "prod"
-aws_region           = "us-east-1"
-app_image            = "123456789012.dkr.ecr.us-east-1.amazonaws.com/claimpilot-backend:latest"
-gemini_api_key       = "replace-me"
-cors_origins         = "https://your-frontend-domain.com"
-upload_cors_allowed_origins = ["https://your-frontend-domain.com"]
-db_password          = "replace-me-strong-password"
-alert_email          = "ops@example.com"
-asg_min_size         = 2
-asg_max_size         = 10
-asg_desired_capacity = 2
+project_name            = "claimpilot-pro"
+environment             = "demo"
+aws_region              = "us-east-1"
+lambda_package_path     = "../../dist/backend-lambda.zip"
+cors_allowed_origins    = ["https://your-project.vercel.app"]
+cors_allow_origin_regex = "https://([a-z0-9-]+\\.)*vercel\\.app$"
+gemini_api_key          = "replace-me"
+documents_bucket_name   = "claimpilot-demo-documents-123456789012"
+lambda_memory_size      = 1024
+lambda_timeout          = 30
 ```
 
 Deploy:
 
 ```bash
-terraform init
+pwsh ./scripts/build_lambda_package.ps1
+terraform init -upgrade
 terraform plan
 terraform apply
 ```
 
-## Notes
+## Outputs
 
-- ALB listener is HTTP (port 80) by default in this baseline. For production internet traffic, attach ACM certificate and add HTTPS listener (443).
-- `gemini_api_key` and `db_password` should be moved to AWS Secrets Manager in a hardened setup.
-- RDS has deletion protection enabled and requires final snapshot on destroy.
+Important outputs after apply:
+
+- `api_url`
+- `documents_bucket`
+- `lambda_function_name`
+
+Use `api_url` as the frontend `VITE_API_URL` in Vercel.
+
+## Cost profile
+
+This stack removes the always-on services that were driving most of the cost:
+
+- no EC2
+- no ALB
+- no NAT gateway
+- no RDS
+
+At demo scale, cost is usually near zero or very low because API Gateway and Lambda are pay-per-use.

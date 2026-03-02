@@ -65,11 +65,14 @@ _cors_origins = os.environ.get(
     "http://localhost:5173,http://127.0.0.1:5173"
 )
 origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+origin_regex = os.environ.get(
+    "CORS_ALLOW_ORIGIN_REGEX",
+    r"https?://(localhost|127\.0\.0\.1)(:\d+)?$|https://([a-z0-9-]+\.)*vercel\.app$",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    # Allow any localhost port for smoother local dev
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,75 +1,125 @@
 # ClaimPilot Pro
 
-ClaimPilot Pro is an AI-assisted medical coding workflow for clinical-note intake, ICD-10/CPT suggestion, claim review, and PDF generation.
+ClaimPilot Pro is an AI-assisted medical coding workflow for clinical-note intake, ICD-10/CPT suggestion, review, and claim PDF generation.
 
-It includes:
-- `backend/`: FastAPI API
-- `frontend/`: React + Vite app
-- `infra/terraform/`: AWS infrastructure code
+## Live Demo
 
-## Current Status
+- Frontend: [claim-pilot-pro.vercel.app](https://claim-pilot-pro.vercel.app)
+- Upload page: [claim-pilot-pro.vercel.app/upload](https://claim-pilot-pro.vercel.app/upload)
+- Backend API: [API Gateway endpoint](https://qq3ez3zb43.execute-api.us-east-1.amazonaws.com)
+- Sample reports: [Google Drive sample reports](https://drive.google.com/drive/folders/1nkFLABt97dOwNJyIqH_32O41ExNiwHD_?usp=sharing)
 
-The project is deployed on AWS.
+## Implemented Demo Architecture
 
-- Frontend: `http://claimpilot-pro-frontend-807430513014.s3-website-us-east-1.amazonaws.com`
-- Backend: `http://claimpilot-pro-prod-alb-1674531874.us-east-1.elb.amazonaws.com`
-- Health check: `http://claimpilot-pro-prod-alb-1674531874.us-east-1.elb.amazonaws.com/health`
+This is the low-cost HTTPS architecture currently deployed for demonstration.
 
-## Main Flow
+```mermaid
+flowchart LR
+    U[User Browser] --> V[Vercel Frontend]
+    V --> A[API Gateway HTTP API]
+    A --> L[AWS Lambda FastAPI]
+    L --> S3[(S3 Private Documents Bucket)]
+    L --> G[Gemini API]
+```
 
-The Upload page is a 4-box layout:
+Current stack:
 
-- Top left: upload PDF or image
-- Top right: extracted content preview
-- Bottom left: paste clinical notes
-- Bottom right: sample documents and anonymous sample notes
+- Frontend on Vercel Hobby
+- Backend on AWS API Gateway HTTP API
+- FastAPI running in AWS Lambda through Mangum
+- Private S3 bucket for uploaded documents
+- JWT kept application-managed for now
+- GitHub Actions backend deploy with Lambda ZIP update
+
+This stack was chosen mainly to reduce infrastructure cost for the demo.
+
+## Large-Scale Production Architecture
+
+For multiple users, stronger security, and horizontal scalability, this is the recommended production architecture.
+
+```mermaid
+flowchart LR
+    U[Users] --> CF[CloudFront]
+    CF --> WAF[AWS WAF]
+    WAF --> ALB[Application Load Balancer]
+    ALB --> APP[Auto Scaling App Tier]
+    APP --> RDS[(RDS PostgreSQL Multi-AZ)]
+    APP --> REDIS[(ElastiCache Redis)]
+    APP --> DOCS[(Private S3 Documents Bucket)]
+    APP --> SQS[SQS Queue]
+    SQS --> WORKERS[Async Workers]
+    APP --> SM[Secrets Manager]
+    APP --> CW[CloudWatch]
+```
+
+Recommended production components:
+
+- CloudFront for secure edge delivery
+- AWS WAF for request filtering and protection
+- ALB for HTTPS load balancing
+- app tier on EC2 Auto Scaling Group or ECS/Fargate
+- private subnets for application and database tiers
+- RDS PostgreSQL Multi-AZ for durable storage
+- ElastiCache Redis for cache and session-heavy workloads
+- private S3 buckets for document storage
+- SQS workers for asynchronous processing
+- Secrets Manager for credentials
+- CloudWatch for logs, metrics, and alarms
+
+## Upload Flow
+
+The Upload page uses a 4-box layout:
+
+- Top left: `Drop PDF or Image`
+- Top right: `Extracted Content Preview`
+- Bottom left: `Paste Clinical Notes`
+- Bottom right: `Sample Documents`
 
 User flow:
 
-1. Upload a file or paste note text
-2. Click `Process Text` if using pasted text
-3. Review extracted content in the preview box
+1. Upload a PDF/image or paste clinical note text
+2. If pasting text, click `Process Text`
+3. Review extracted content in the preview panel
 4. Click `Suggest Codes`
-5. Review suggestions
-6. Approve codes and generate claim output
+5. Review suggested ICD-10/CPT codes
+6. Approve and continue claim workflow
 
-## Anonymous Sample Data
+## Environment
 
-The frontend includes anonymous sample notes so reviewers can test the app without personal data.
+### Frontend on Vercel
 
-- Google Drive sample reports folder:
-  `https://drive.google.com/drive/folders/1nkFLABt97dOwNJyIqH_32O41ExNiwHD_?usp=sharing`
+Set these environment variables in Vercel:
 
-The sample-note cards are embedded directly in the Upload page.
+```env
+VITE_API_URL=https://your-api-id.execute-api.us-east-1.amazonaws.com
+VITE_ENABLE_S3_DIRECT_UPLOAD=true
+VITE_SAMPLE_REPORTS_URL=https://your-public-drive-link
+```
 
-## Features
+### Backend Terraform
 
-- Clinical note upload from PDF/image
-- Direct text paste workflow
-- S3 direct upload with pre-signed URLs
-- Extracted text preview before coding
-- ICD-10 and CPT suggestion flow
-- CMS-1500 and claim PDF generation
-- AWS deployment with ALB, EC2, S3, and RDS
-- Anonymous sample-note testing flow
+Example `infra/terraform/terraform.tfvars`:
 
-## Repository Structure
+```hcl
+project_name            = "your-project-name"
+environment             = "demo"
+aws_region              = "us-east-1"
+lambda_package_path     = "../../dist/backend-lambda.zip"
+cors_allowed_origins    = ["https://your-project.vercel.app"]
+cors_allow_origin_regex = "https://([a-z0-9-]+\\.)*vercel\\.app$"
+gemini_api_key          = "your-gemini-api-key"
+documents_bucket_name   = "your-demo-documents-bucket"
+lambda_memory_size      = 1024
+lambda_timeout          = 30
+```
 
-- `backend/app/main.py`: API entrypoint
-- `backend/app/llm_refine.py`: LLM and fallback suggestion logic
-- `backend/app/medical_fallback.py`: deterministic local suggestion fallback
-- `backend/app/storage.py`: S3 upload/presign logic
-- `frontend/src/pages/Upload.tsx`: 4-box upload UI
-- `frontend/src/components/SampleNotes.tsx`: sample-documents block
-- `frontend/src/lib/sampleNotes.ts`: anonymous sample notes
-- `infra/terraform/`: AWS infrastructure
+Do not commit real secrets in `terraform.tfvars`.
 
 ## Local Development
 
 ### Backend
 
 ```powershell
-cd d:\hackathon\ClaimPilot-Pro
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r backend\requirements.txt
@@ -79,117 +129,86 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ### Frontend
 
 ```powershell
-cd d:\hackathon\ClaimPilot-Pro\frontend
+cd frontend
 npm install
-@"
-VITE_API_URL=http://localhost:8000
-VITE_ENABLE_S3_DIRECT_UPLOAD=false
-"@ | Out-File -FilePath .env -Encoding ascii
 npm run dev
 ```
 
-## Environment Variables
+## Demo Backend Deployment
 
-### Backend
-
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL`
-- `LLM_PROVIDER`
-- `LLM_DEBUG`
-- `SUGGEST_MODE`
-- `CORS_ORIGINS`
-- `S3_UPLOAD_BUCKET`
-- `S3_UPLOAD_PREFIX`
-- `S3_PRESIGN_EXPIRES_SECONDS`
-- `S3_KMS_KEY_ID`
-- `MEDGEMMA_ENDPOINT_URL`
-- `MEDGEMMA_API_KEY`
-- `MEDGEMMA_MODEL`
-
-### Frontend
-
-- `VITE_API_URL`
-- `VITE_ENABLE_S3_DIRECT_UPLOAD`
-- `VITE_SAMPLE_REPORTS_URL`
-
-## API Overview
-
-Base URL:
-
-- Local: `http://localhost:8000`
-- AWS: `http://claimpilot-pro-prod-alb-1674531874.us-east-1.elb.amazonaws.com`
-
-Main endpoints:
-
-- `POST /upload`
-- `POST /storage/presign-upload`
-- `POST /storage/process-upload`
-- `POST /suggest`
-- `POST /generate_claim`
-- `POST /claim_pdf`
-- `POST /cms1500`
-- `POST /cms1500/derive`
-- `GET /config`
-- `GET /health`
-
-## AWS Deployment
-
-Infrastructure is managed from:
-
-- `infra/terraform/`
-
-Current AWS stack includes:
-
-- VPC
-- public/private subnets
-- Application Load Balancer
-- EC2 Auto Scaling Group
-- private S3 documents bucket
-- RDS PostgreSQL
-- IAM roles and instance profile
-- CloudWatch alarm
-- SNS topic
-
-Frontend hosting:
-
-- S3 static website bucket:
-  `claimpilot-pro-frontend-807430513014`
-
-Backend document bucket:
-
-- `claimpilot-pro-prod-documents-807430513014`
-
-## Docker
-
-Build backend image:
+Build the Lambda ZIP:
 
 ```powershell
-cd d:\hackathon\ClaimPilot-Pro
-docker build -t claimpilot-backend:v1 .
+pwsh .\scripts\build_lambda_package.ps1
 ```
 
-## Notes About Suggestions
+Deploy or update AWS infrastructure:
 
-Suggestion flow currently works in this order:
+```powershell
+cd infra\terraform
+terraform init -upgrade
+terraform plan
+terraform apply
+```
 
-1. Gemini-based suggestion path
-2. Local deterministic fallback if the LLM does not return usable output
+Update Lambda code after rebuilding:
 
-This avoids empty results during demo usage.
+```powershell
+aws lambda update-function-code --function-name your-lambda-function-name --zip-file fileb://dist/backend-lambda.zip --region us-east-1
+```
 
-## Mobile Support
+Test the backend:
 
-The Upload page has been adjusted for mobile:
+```powershell
+iwr https://your-api-id.execute-api.us-east-1.amazonaws.com/health -UseBasicParsing
+```
 
-- responsive sample-documents block
-- smaller upload dropzone on phones
-- wrapped filenames
-- reduced textarea height on small screens
+## CI/CD
 
-## Security Note
+### Current CI/CD
 
-This is a demo/hackathon system. Do not use real PHI unless you harden the system for compliance first.
+- Frontend deploys from GitHub to Vercel
+- Backend deploys from GitHub Actions by building a Lambda ZIP and calling `aws lambda update-function-code`
+
+### Required GitHub Actions Secrets
+
+Add these secrets in GitHub:
+
+- `AWS_REGION` = `us-east-1`
+- `AWS_ACCESS_KEY_ID` = your AWS access key
+- `AWS_SECRET_ACCESS_KEY` = your AWS secret key
+- `LAMBDA_FUNCTION_NAME` = your deployed Lambda function name
+
+## Security Notes
+
+Current demo security posture:
+
+- HTTPS on frontend and backend
+- private S3 documents bucket
+- least-privilege Lambda IAM role
+- API Gateway CORS limited to the Vercel origin
+
+For production, move sensitive configuration such as model keys into a managed secret store and replace self-managed auth with a managed identity solution.
+
+## Repository Structure
+
+- `backend/app/main.py`: FastAPI application
+- `backend/app/lambda_handler.py`: Lambda entrypoint via Mangum
+- `backend/app/storage.py`: S3 upload flow
+- `backend/app/llm_refine.py`: Gemini and fallback suggestion logic
+- `backend/app/medical_fallback.py`: deterministic fallback suggestion logic
+- `backend/resources/`: ICD/CPT resource files
+- `frontend/src/pages/Upload.tsx`: 4-box upload workflow
+- `frontend/src/components/SampleNotes.tsx`: sample notes and sample documents panel
+- `frontend/vercel.json`: SPA routing for Vercel
+- `scripts/build_lambda_package.ps1`: Lambda ZIP packaging script
+- `infra/terraform/`: API Gateway + Lambda + S3 infrastructure
+
+## Authors
+
+- Suriya Chellappan
+- Sabari Iyyappan
 
 ## License
 
-Hackathon/demo use unless replaced with your preferred project license.
+MIT License

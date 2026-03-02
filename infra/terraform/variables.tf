@@ -7,7 +7,7 @@ variable "project_name" {
 variable "environment" {
   type        = string
   description = "Environment name."
-  default     = "prod"
+  default     = "demo"
 }
 
 variable "aws_region" {
@@ -16,49 +16,22 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "vpc_cidr" {
+variable "lambda_package_path" {
   type        = string
-  default     = "10.20.0.0/16"
+  description = "Path to the Lambda deployment zip."
+  default     = "../../dist/backend-lambda.zip"
 }
 
-variable "public_subnet_cidrs" {
-  type    = list(string)
-  default = ["10.20.1.0/24", "10.20.2.0/24"]
+variable "cors_allowed_origins" {
+  type        = list(string)
+  description = "Allowed frontend origins for API Gateway and FastAPI CORS."
+  default     = ["https://example.vercel.app"]
 }
 
-variable "private_subnet_cidrs" {
-  type    = list(string)
-  default = ["10.20.11.0/24", "10.20.12.0/24"]
-}
-
-variable "app_port" {
-  type    = number
-  default = 8000
-}
-
-variable "instance_type" {
-  type    = string
-  default = "t2.micro"
-}
-
-variable "asg_min_size" {
-  type    = number
-  default = 1
-}
-
-variable "asg_max_size" {
-  type    = number
-  default = 2
-}
-
-variable "asg_desired_capacity" {
-  type    = number
-  default = 1
-}
-
-variable "app_image" {
+variable "cors_allow_origin_regex" {
   type        = string
-  description = "Container image URI (ECR recommended), e.g. 123.dkr.ecr.us-east-1.amazonaws.com/claimpilot:latest"
+  description = "Optional regex for dynamic preview domains, e.g. Vercel previews."
+  default     = "https://([a-z0-9-]+\\.)*vercel\\.app$"
 }
 
 variable "gemini_api_key" {
@@ -67,62 +40,20 @@ variable "gemini_api_key" {
   description = "Gemini API key for model calls."
 }
 
-variable "cors_origins" {
+variable "documents_bucket_name" {
   type        = string
-  description = "Comma-separated CORS origins."
-  default     = "https://example.com"
+  description = "S3 bucket name for uploaded documents. Leave empty for automatic naming."
+  default     = ""
 }
 
-variable "db_name" {
-  type    = string
-  default = "claimpilot"
-}
-
-variable "db_username" {
-  type    = string
-  default = "claimpilot"
-}
-
-variable "db_password" {
-  type        = string
-  sensitive   = true
-  description = "RDS master password."
-}
-
-variable "db_instance_class" {
-  type    = string
-  default = "db.t3.micro"
-}
-
-variable "db_allocated_storage" {
-  type    = number
-  default = 20
-}
-
-variable "alert_email" {
-  type        = string
-  description = "SNS email for high-priority alerts."
-}
-
-variable "health_check_path" {
-  type    = string
-  default = "/health"
-}
-
-variable "upload_cors_allowed_origins" {
-  type        = list(string)
-  description = "Allowed browser origins for direct S3 uploads."
-  default     = ["https://example.com"]
-}
-
-variable "db_multi_az" {
-  type        = bool
-  description = "Enable Multi-AZ for RDS."
-  default     = false
-}
-
-variable "db_backup_retention_period" {
+variable "lambda_memory_size" {
   type        = number
-  description = "RDS backup retention in days."
-  default     = 0
+  description = "Lambda memory size in MB."
+  default     = 1024
+}
+
+variable "lambda_timeout" {
+  type        = number
+  description = "Lambda timeout in seconds."
+  default     = 30
 }

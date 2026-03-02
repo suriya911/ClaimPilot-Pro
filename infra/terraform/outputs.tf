@@ -1,15 +1,15 @@
-output "alb_dns_name" {
-  value = aws_lb.app.dns_name
+output "api_url" {
+  value = aws_apigatewayv2_api.http.api_endpoint
 }
 
 output "documents_bucket" {
   value = aws_s3_bucket.documents.bucket
 }
 
-output "rds_endpoint" {
-  value = aws_db_instance.postgres.endpoint
+output "lambda_function_name" {
+  value = aws_lambda_function.api.function_name
 }
 
-output "sns_alert_topic_arn" {
-  value = aws_sns_topic.alerts.arn
+output "lambda_function_arn" {
+  value = aws_lambda_function.api.arn
 }
