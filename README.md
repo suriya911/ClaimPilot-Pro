@@ -1,114 +1,195 @@
-# ClaimPilot Pro — AI-Assisted Medical Coding & Claim Generation
+# ClaimPilot Pro
 
-ClaimPilot Pro is an end‑to‑end coding assistant that extracts clinical context from notes, suggests ICD‑10 and CPT codes using retrieval + LLM, and generates professional claims (including CMS‑1500 PDFs). It ships with a FastAPI backend, a modern React/TypeScript frontend.
+ClaimPilot Pro is an AI-assisted medical coding workflow for clinical-note intake, ICD-10/CPT suggestion, claim review, and PDF generation.
 
-This README is hackathon‑ready: it covers setup, run, demo workflow, APIs, and packaging.
+It includes:
+- `backend/`: FastAPI API
+- `frontend/`: React + Vite app
+- `infra/terraform/`: AWS infrastructure code
 
-## What You Get
+## Current Status
 
-- AI coding pipeline: NER ➜ retrieval (FAISS) ➜ Gemini LLM refinement ➜ human review
-- Clean React UI: upload, review suggestions, approve, sign, and export
-- CMS‑1500 PDF generation and basic claim PDF
+The project is deployed on AWS.
+
+- Frontend: `http://claimpilot-pro-frontend-807430513014.s3-website-us-east-1.amazonaws.com`
+- Backend: `http://claimpilot-pro-prod-alb-1674531874.us-east-1.elb.amazonaws.com`
+- Health check: `http://claimpilot-pro-prod-alb-1674531874.us-east-1.elb.amazonaws.com/health`
+
+## Main Flow
+
+The Upload page is a 4-box layout:
+
+- Top left: upload PDF or image
+- Top right: extracted content preview
+- Bottom left: paste clinical notes
+- Bottom right: sample documents and anonymous sample notes
+
+User flow:
+
+1. Upload a file or paste note text
+2. Click `Process Text` if using pasted text
+3. Review extracted content in the preview box
+4. Click `Suggest Codes`
+5. Review suggestions
+6. Approve codes and generate claim output
+
+## Anonymous Sample Data
+
+The frontend includes anonymous sample notes so reviewers can test the app without personal data.
+
+- Google Drive sample reports folder:
+  `https://drive.google.com/drive/folders/1nkFLABt97dOwNJyIqH_32O41ExNiwHD_?usp=sharing`
+
+The sample-note cards are embedded directly in the Upload page.
+
+## Features
+
+- Clinical note upload from PDF/image
+- Direct text paste workflow
+- S3 direct upload with pre-signed URLs
+- Extracted text preview before coding
+- ICD-10 and CPT suggestion flow
+- CMS-1500 and claim PDF generation
+- AWS deployment with ALB, EC2, S3, and RDS
+- Anonymous sample-note testing flow
 
 ## Repository Structure
 
-- `backend/` — FastAPI app and ML pipeline
-  - `backend/app/main.py` — API endpoints (upload, suggest, claim, cms1500)
-  - `backend/app/llm_refine.py` — Gemini prompts and parsing
-  - `backend/app/ner.py`, `backend/app/ocr.py` — lightweight NER/OCR helpers
-  - `backend/app/code_index.py`, `backend/app/build_index.py` — embeddings + FAISS
-  - `backend/app/cms1500.py`, `backend/app/pdfgen.py` — PDF generation
-  - `backend/requirements.txt` — pinned backend deps
-- `frontend/` — React + Vite + Tailwind + shadcn/ui app
-- `data/` — CSVs for ICD‑10 and CPT (`icd10.csv`, `mock_cpt.csv`)
-- `Dockerfile` — container for the backend
+- `backend/app/main.py`: API entrypoint
+- `backend/app/llm_refine.py`: LLM and fallback suggestion logic
+- `backend/app/medical_fallback.py`: deterministic local suggestion fallback
+- `backend/app/storage.py`: S3 upload/presign logic
+- `frontend/src/pages/Upload.tsx`: 4-box upload UI
+- `frontend/src/components/SampleNotes.tsx`: sample-documents block
+- `frontend/src/lib/sampleNotes.ts`: anonymous sample notes
+- `infra/terraform/`: AWS infrastructure
 
-## Prerequisites
+## Local Development
 
-- Python 3.11
-- Node.js 18+ and npm
-- Optional (OCR): Tesseract OCR and poppler (Linux/Docker already covered). On macOS: `brew install tesseract poppler`. On Windows, install Tesseract from its official installer.
-- LLM access (recommended): Google Gemini API key
-
-## Quick Start (Local)
-
-1) Backend setup
-
-```bash
-# From repo root
-python -m venv .venv
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-# macOS/Linux
-# source .venv/bin/activate
-
-python -m pip install --upgrade pip setuptools wheel
-pip install -r backend/requirements.txt
-```
-
-2) Build the retrieval index (optional but recommended)
-
-Creates `data/descriptions.npy`, `data/meta.npy`, `data/faiss.index` used for retrieval. If you skip this, the system still works in LLM‑only mode.
-
-```bash
-# From repo root (ensure venv is active)
-python -m backend.app.build_index --icd_csv data/icd10.csv --cpt_csv data/mock_cpt.csv --out_dir data
-```
-
-3) Environment variables
-
-- `GEMINI_API_KEY` — required for LLM refinement
-- `GEMINI_MODEL` — default `gemini-2.0-flash-exp`
-- `SUGGEST_MODE` — `llm` (default) or `hybrid` (retrieval + LLM)
-- `CORS_ORIGINS` — CSV of allowed origins for the frontend
-- `LLM_DEBUG` — set to `1` for verbose logs
-
-Example (PowerShell):
+### Backend
 
 ```powershell
-$env:GEMINI_API_KEY = "your_key_here"
-$env:SUGGEST_MODE = "llm"
-```
-
-4) Run the backend
-
-```bash
+cd d:\hackathon\ClaimPilot-Pro
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-5) Frontend setup and run
+### Frontend
 
-```bash
-cd frontend
+```powershell
+cd d:\hackathon\ClaimPilot-Pro\frontend
 npm install
-
-# Configure the backend URL
-echo VITE_API_URL=http://localhost:8000 > .env
-
+@"
+VITE_API_URL=http://localhost:8000
+VITE_ENABLE_S3_DIRECT_UPLOAD=false
+"@ | Out-File -FilePath .env -Encoding ascii
 npm run dev
-# App at http://localhost:5173 (Vite default)
 ```
 
-## Demo Workflow (Hackathon)
+## Environment Variables
 
-1) Start services
-- Backend: `uvicorn backend.app.main:app --reload --port 8000`
-- Frontend: `npm run dev` in `frontend/`
+### Backend
 
-2) Walkthrough
-- Upload a clinical PDF/image or paste note text
-- Review extracted entities
-- Click “Get Suggestions” to fetch AI‑proposed ICD‑10/CPT codes
-- Approve/edit codes and add an amount and signature
-- Click “Generate Claim”
-- Download CMS‑1500 PDF (prefilled via `/cms1500/derive`) or basic claim PDF
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `LLM_PROVIDER`
+- `LLM_DEBUG`
+- `SUGGEST_MODE`
+- `CORS_ORIGINS`
+- `S3_UPLOAD_BUCKET`
+- `S3_UPLOAD_PREFIX`
+- `S3_PRESIGN_EXPIRES_SECONDS`
+- `S3_KMS_KEY_ID`
+- `MEDGEMMA_ENDPOINT_URL`
+- `MEDGEMMA_API_KEY`
+- `MEDGEMMA_MODEL`
 
-3) Bonus talking points
-- Retrieval on/off: `SUGGEST_MODE=hybrid` uses FAISS candidates prior to LLM
-- Audit trail: claim metadata 
+### Frontend
 
+- `VITE_API_URL`
+- `VITE_ENABLE_S3_DIRECT_UPLOAD`
+- `VITE_SAMPLE_REPORTS_URL`
+
+## API Overview
+
+Base URL:
+
+- Local: `http://localhost:8000`
+- AWS: `http://claimpilot-pro-prod-alb-1674531874.us-east-1.elb.amazonaws.com`
+
+Main endpoints:
+
+- `POST /upload`
+- `POST /storage/presign-upload`
+- `POST /storage/process-upload`
+- `POST /suggest`
+- `POST /generate_claim`
+- `POST /claim_pdf`
+- `POST /cms1500`
+- `POST /cms1500/derive`
+- `GET /config`
+- `GET /health`
+
+## AWS Deployment
+
+Infrastructure is managed from:
+
+- `infra/terraform/`
+
+Current AWS stack includes:
+
+- VPC
+- public/private subnets
+- Application Load Balancer
+- EC2 Auto Scaling Group
+- private S3 documents bucket
+- RDS PostgreSQL
+- IAM roles and instance profile
+- CloudWatch alarm
+- SNS topic
+
+Frontend hosting:
+
+- S3 static website bucket:
+  `claimpilot-pro-frontend-807430513014`
+
+Backend document bucket:
+
+- `claimpilot-pro-prod-documents-807430513014`
+
+## Docker
+
+Build backend image:
+
+```powershell
+cd d:\hackathon\ClaimPilot-Pro
+docker build -t claimpilot-backend:v1 .
+```
+
+## Notes About Suggestions
+
+Suggestion flow currently works in this order:
+
+1. Gemini-based suggestion path
+2. Local deterministic fallback if the LLM does not return usable output
+
+This avoids empty results during demo usage.
+
+## Mobile Support
+
+The Upload page has been adjusted for mobile:
+
+- responsive sample-documents block
+- smaller upload dropzone on phones
+- wrapped filenames
+- reduced textarea height on small screens
+
+## Security Note
+
+This is a demo/hackathon system. Do not use real PHI unless you harden the system for compliance first.
 
 ## License
 
-For hackathon/demo purposes only. Add your preferred license if needed.
-
+Hackathon/demo use unless replaced with your preferred project license.
