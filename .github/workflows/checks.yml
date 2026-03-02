@@ -1,0 +1,61 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "Dockerfile"
+      - ".github/workflows/checks.yml"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Compile backend
+        run: python -m compileall backend/app
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: http://localhost:8000
+          VITE_ENABLE_S3_DIRECT_UPLOAD: "false"
+        run: npm run build

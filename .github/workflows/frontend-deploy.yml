@@ -1,0 +1,61 @@
+name: Deploy Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-deploy.yml"
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      FRONTEND_BUCKET: ${{ secrets.FRONTEND_BUCKET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_ENABLE_S3_DIRECT_UPLOAD: ${{ secrets.VITE_ENABLE_S3_DIRECT_UPLOAD }}
+          VITE_SAMPLE_REPORTS_URL: ${{ secrets.VITE_SAMPLE_REPORTS_URL }}
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync frontend to S3
+        run: aws s3 sync ./dist s3://$FRONTEND_BUCKET --delete

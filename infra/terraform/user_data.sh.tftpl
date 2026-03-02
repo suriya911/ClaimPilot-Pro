@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker awscli
+systemctl enable docker
+systemctl start docker
+
+cat >/opt/claimpilot.env <<EOF
+GEMINI_API_KEY=${gemini_api_key}
+CORS_ORIGINS=${cors_origins}
+S3_UPLOAD_BUCKET=${s3_bucket}
+AWS_REGION=${aws_region}
+SUGGEST_MODE=llm
+EOF
+
+ECR_REGISTRY=$(echo "${app_image}" | cut -d/ -f1)
+aws ecr get-login-password --region ${aws_region} | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+docker pull ${app_image}
+
+docker run -d --restart unless-stopped \
+  --name claimpilot-backend \
+  -p ${app_port}:8000 \
+  --env-file /opt/claimpilot.env \
+  ${app_image}

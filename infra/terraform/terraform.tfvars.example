@@ -1,0 +1,22 @@
+project_name                = "claimpilot-pro"
+environment                 = "prod"
+aws_region                  = "us-east-1"
+
+# Use your ECR image URI from docker push
+app_image                   = "123456789012.dkr.ecr.us-east-1.amazonaws.com/claimpilot-backend:v1"
+
+# App settings
+gemini_api_key              = "replace_me"
+cors_origins                = "https://your-frontend-domain.com"
+upload_cors_allowed_origins = ["https://your-frontend-domain.com"]
+
+# Database
+db_password                 = "replace_with_strong_password"
+
+# Alerts
+alert_email                 = "you@example.com"
+
+# Scaling
+asg_min_size                = 2
+asg_max_size                = 10
+asg_desired_capacity        = 2

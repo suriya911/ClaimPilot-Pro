@@ -1,0 +1,13 @@
+project_name                = "claimpilot-pro"
+environment                 = "prod"
+aws_region                  = "us-east-1"
+app_image                   = "807430513014.dkr.ecr.us-east-1.amazonaws.com/claimpilot-backend:v1"
+gemini_api_key              = "AIzaSyCnxe8Y7yrg0ZB-ryxyGSRfE9NBIrC57QA"
+cors_origins                = "http://claimpilot-pro-frontend-807430513014.s3-website-us-east-1.amazonaws.com"
+upload_cors_allowed_origins = ["http://claimpilot-pro-frontend-807430513014.s3-website-us-east-1.amazonaws.com"]
+db_password                 = "StrongPassword123!"
+alert_email                 = "uit20219@rmd.ac.in"
+asg_min_size                = 1
+asg_max_size                = 2
+asg_desired_capacity        = 1
+instance_type = "t3.micro"
